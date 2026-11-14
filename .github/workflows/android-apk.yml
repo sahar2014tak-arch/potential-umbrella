@@ -4,8 +4,7 @@ name: Build Lost Kingdom Android APK
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
   android-apk:
@@ -17,35 +16,39 @@ jobs:
       - name: Get project
         uses: actions/checkout@v4
 
-      - name: Find and extract game project
+      - name: Find and extract game
         run: |
           set -eu
-
-          PROJECT_FILE="$(find . -type f -name project.godot -not -path './.git/*' -print -quit)"
-
-          if [ -z "$PROJECT_FILE" ]; then
-            ZIP_FILE="$(find . -type f -iname '*.zip' -not -path './.git/*' -print -quit)"
-
-            if [ -z "$ZIP_FILE" ]; then
-              echo "No project.godot or ZIP file found"
-              exit 1
-            fi
-
-            mkdir -p extracted
-            unzip -oq "$ZIP_FILE" -d extracted
-
-            PROJECT_FILE="$(find extracted -type f -name project.godot -print -quit)"
+          ZIP_FILE=$(find . -maxdepth 2 -type f -iname "*.zip" | head -n 1)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "Game ZIP file not found"
+            exit 1
           fi
-
+          mkdir -p extracted
+          unzip -oq "$ZIP_FILE" -d extracted
+          PROJECT_FILE=$(find extracted -type f -name "project.godot" | head -n 1)
           if [ -z "$PROJECT_FILE" ]; then
             echo "project.godot not found"
             exit 1
           fi
-
-          PROJECT_DIR="$(dirname "$PROJECT_FILE")"
+          PROJECT_DIR=$(dirname "$PROJECT_FILE")
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-
           echo "Project found: $PROJECT_DIR"
+
+      - name: Configure Android SDK
+        run: |
+          mkdir -p /root/.config/godot
+          cat > /root/.config/godot/editor_settings-4.4.tres <<'EOF'
+          [gd_resource type="EditorSettings" format=3]
+          [resource]
+          export/android/java_sdk_path = "/usr/lib/jvm/java-17-openjdk-amd64"
+          export/android/android_sdk_path = "/usr/lib/android-sdk"
+          export/android/debug_keystore = "/root/debug.keystore"
+          export/android/debug_keystore_user = "androiddebugkey"
+          export/android/debug_keystore_pass = "android"
+          EOF
+          test -x /usr/lib/jvm/java-17-openjdk-amd64/bin/java
+          test -d /usr/lib/android-sdk
 
       - name: Import project
         run: |
@@ -54,11 +57,10 @@ jobs:
       - name: Export Android APK
         run: |
           mkdir -p build
-          godot --headless --path "$PROJECT_DIR" --export-debug "Android" build/LostKingdom-debug.apk
+          godot --headless --path "$PROJECT_DIR" --export-debug "Android" "$GITHUB_WORKSPACE/build/LostKingdom-debug.apk"
 
       - name: Save APK
         uses: actions/upload-artifact@v4
         with:
           name: Lost-Kingdom-Android-APK
           path: build/LostKingdom-debug.apk
-          if-no-files-found: error
