@@ -33,7 +33,8 @@ jobs:
       - name: Export Android APK
         run: |
           mkdir -p build
-          godot --headless --path "$PROJECT_DIR" --export-debug "Android" build/LostKingdom-debug.apk
+      PROJECT_DIR="$(dirname "$(find extracted -type f -name project.godot | head -n 1)")"
+godot --headless --path "$PROJECT_DIR" --export-debug "Android" build/LostKingdom-debug.apk
 
       - name: Save APK
         uses: actions/upload-artifact@v4
