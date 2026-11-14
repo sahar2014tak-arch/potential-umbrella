@@ -1,34 +1,42 @@
+
 name: Build Lost Kingdom Android APK
 
 on:
   workflow_dispatch:
   push:
-    branches: [ main, master ]
-
-permissions:
-  contents: read
+    branches: [main]
 
 jobs:
   android-apk:
     runs-on: ubuntu-latest
     container:
       image: barichello/godot-ci:4.4.1
+
     steps:
       - name: Get project
         uses: actions/checkout@v4
 
-      - name: Prepare output folder
-        run: mkdir -p build
+      - name: Extract game project
+        run: |
+          mkdir -p extracted
+          unzip -o LostKingdom_Android_Release_Candidate.zip -d extracted
+          PROJECT_FILE=$(find extracted -type f -name project.godot | head -n 1)
+          if [ -z "$PROJECT_FILE" ]; then
+            echo "project.godot not found"
+            exit 1
+          fi
+          echo "PROJECT_DIR=$(dirname "$PROJECT_FILE")" >> "$GITHUB_ENV"
 
-      - name: Import project resources
-        run: godot --headless --path . --editor --quit
+      - name: Import project
+        run: godot --headless --editor --path "$PROJECT_DIR" --quit
 
-      - name: Export Android debug APK
-        run: godot --headless --path . --export-debug "Android" build/LostKingdom-debug.apk
+      - name: Export Android APK
+        run: |
+          mkdir -p build
+          godot --headless --path "$PROJECT_DIR" --export-debug "Android" build/LostKingdom-debug.apk
 
-      - name: Save APK as downloadable artifact
+      - name: Save APK
         uses: actions/upload-artifact@v4
         with:
           name: Lost-Kingdom-Android-APK
           path: build/LostKingdom-debug.apk
-          if-no-files-found: error
