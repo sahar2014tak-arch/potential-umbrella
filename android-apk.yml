@@ -1,6 +1,8 @@
 
-name: Build Lost Kingdom Android APK
-
+      - name: Export Android APK
+        run: |
+          mkdir -p build
+          godot --headless --path "$PROJECT_DIR" --export-debug "Android" build/LostKingdom-debug.apk
 on:
   workflow_dispatch:
   push:
